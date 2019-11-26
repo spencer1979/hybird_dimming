@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "dport_reg.h": "c",
+        "soc.h": "c"
+    }
+}

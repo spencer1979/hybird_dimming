@@ -23,6 +23,7 @@ volatile uint8_t led1stat = 0;
 volatile uint8_t led2stat = 0;
 volatile SemaphoreHandle_t timerSemaphore;
 volatile SemaphoreHandle_t timerSemaphore1;
+volatile bool intflag = false;
 uint64_t isrcount, timerVal;
 TaskHandle_t pwmTaskHandle = NULL;
 
@@ -32,15 +33,7 @@ void IRAM_ATTR onTimer0()
   // Critical Code here
   portENTER_CRITICAL_ISR(&timerMux0);
   led1stat = 1 - led1stat;
-  gpio_set_level((gpio_num_t)33, led1stat);
-  if (led1stat)
-  {
-    ledcWrite(0, 700);
-  }
-  else
-  {
-    ledcWrite(0, 0);
-  }
+
   portEXIT_CRITICAL_ISR(&timerMux0);
 }
 
@@ -59,6 +52,7 @@ void vPwmTask(void *arg)
 
   timerSemaphore = xSemaphoreCreateBinary();
   timerSemaphore1 = xSemaphoreCreateBinary();
+  
   gpio_pad_select_gpio((gpio_num_t)33);
   gpio_set_direction((gpio_num_t)33, GPIO_MODE_OUTPUT);
   //pinMode(16, OUTPUT);
@@ -105,23 +99,37 @@ void vPwmTask(void *arg)
 
   for (;;)
   {
-    timerVal = timerRead(timer0);
-    portENTER_CRITICAL(&timerMux0);
-    if (timerVal < 200 && led1stat != 0)
+    //portENTER_CRITICAL(&timerMux0);
+    if (led1stat)
+    {
+     // Serial.printf("alarm micor%d\r\n" ,timerAlarmReadMicros(timer0) );
+      if (timerAlarmReadMicros(timer0) - timerReadMicros(timer0) <1000)
+      {
+
+        ledcWrite(0, (int)map(25, 0, 100, 0, 1023));
+      }
+      else 
+      {
+        ledcWrite(0, (int)map(75, 0, 100, 0, 1023));
+      }
+      gpio_set_level((gpio_num_t)33, led1stat);
+    }
+    else
     {
 
-      ledcWrite(0, (int)map(95, 0, 100, 0, 1023));
-    }
-    else if (timerVal > 200 && timerVal < 4000 && led1stat != 0)
-    {
+      if (timerAlarmReadMicros(timer0) - timerReadMicros(timer0) < 500)
+      {
+        ledcWrite(0, (int)map(75, 0, 100, 0, 1023));
+      }
+      else
+      {
+        ledcWrite(0, 0);
+      }
 
-      ledcWrite(0, (int)map(75, 0, 100, 0, 1023));
+      gpio_set_level((gpio_num_t)33, led1stat);
     }
-    else if (timerVal > 4000 && led1stat != 0)
-    { //Serial.println("start timer 0");
-      ledcWrite(0, (int)map(40, 0, 100, 0, 1023));
-    }
-    portEXIT_CRITICAL(&timerMux0);
+
+    //  portEXIT_CRITICAL(&timerMux0);
   }
   //vTaskDelete(NULL);
 }
